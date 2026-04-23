@@ -1,14 +1,5 @@
 <div align="center">
 	<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f0f11,40:7c6af7,100:c9f542&height=220&section=header&text=CollabIT&fontSize=58&fontColor=e8e8ea&animation=fadeIn&desc=Realtime%20Document%20Collaboration%20Platform&descAlignY=64" alt="CollabIT banner" />
-
-	<img src="https://readme-typing-svg.herokuapp.com?font=DM+Sans&weight=600&size=24&pause=900&duration=2600&color=C9F542&center=true&vCenter=true&width=920&lines=Realtime+editing+with+Socket.IO+and+OT;Presence%2C+chat%2C+and+mini+whiteboard+in+one+workspace;Built+for+fast+multi-user+collaboration" alt="Typing animation" />
-
-	<p>
-		<img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js" />
-		<img src="https://img.shields.io/badge/Socket.IO-4.x-010101?logo=socketdotio&logoColor=white" alt="Socket.IO" />
-		<img src="https://img.shields.io/badge/Express-4.x-000000?logo=express&logoColor=white" alt="Express" />
-		<img src="https://img.shields.io/badge/License-MIT-informational" alt="License" />
-	</p>
 </div>
 
 ## Overview
