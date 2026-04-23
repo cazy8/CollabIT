@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Collab — Live Document</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f0f11; --surface: #17171a; --border: #2a2a30;
+      --text: #e8e8ea; --muted: #6b6b78;
+      --accent: #c9f542; --accent2: #7c6af7; --danger: #ff5c5c;
+      --radius: 10px; --sidebar: 300px;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+
+    /* ── Join ───────────────────────────────────────── */
+    #join-screen {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg);
+    }
+    .join-card {
+      width: 420px; padding: 48px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; animation: fadeUp .4s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .join-card .logo { font-family:'DM Serif Display',serif; font-size:28px; letter-spacing:-1px; color:var(--accent); margin-bottom:8px; }
+    .join-card .sub  { color:var(--muted); font-size:14px; margin-bottom:36px; }
+    .join-card label { font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); display:block; margin-bottom:8px; }
+    .join-card input {
+      width:100%; padding:12px 16px;
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:var(--radius); color:var(--text);
+      font-family:'DM Sans',sans-serif; font-size:15px; transition:border-color .2s; margin-bottom:20px;
+    }
+    .join-card input:focus { outline:none; border-color:var(--accent); }
+    .join-card .doc-id { font-family:'DM Mono',monospace; font-size:14px; color:var(--accent2); background:var(--bg); padding:12px 16px; border-radius:var(--radius); border:1px solid var(--border); margin-bottom:28px; }
+    .join-btn { width:100%; padding:14px; background:var(--accent); color:#0f0f11; border:none; border-radius:var(--radius); font-family:'DM Sans',sans-serif; font-size:15px; font-weight:500; cursor:pointer; transition:opacity .2s, transform .1s; }
+    .join-btn:hover { opacity:.85; }
+    .join-btn:active { transform:scale(.98); }
+
+    /* ── App ────────────────────────────────────────── */
+    #app { display:none; height:100vh; flex-direction:column; }
+    #app.visible { display:flex; }
+
+    .topbar {
+      height:56px; display:flex; align-items:center; padding:0 20px; gap:16px;
+      border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0;
+    }
+    .topbar .logo { font-family:'DM Serif Display',serif; font-size:20px; color:var(--accent); letter-spacing:-.5px; flex-shrink:0; }
+    .topbar .doc-title { flex:1; font-family:'DM Mono',monospace; font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .topbar .doc-title span { color:var(--text); }
+    .presence-row { display:flex; align-items:center; }
+    .avatar { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:500; color:#0f0f11; border:2px solid var(--bg); margin-left:-6px; position:relative; cursor:default; }
+    .avatar:first-child { margin-left:0; }
+    .avatar .tooltip { position:absolute; bottom:-28px; background:var(--border); padding:4px 8px; border-radius:6px; font-size:11px; color:var(--text); white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .2s; }
+    .avatar:hover .tooltip { opacity:1; }
+    .status-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 6px var(--accent); animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    .share-btn {
+      padding:7px 14px; background:transparent; border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:6px;
+    }
+    .share-btn:hover { background:var(--border); }
+    .share-btn.live { border-color:var(--accent); color:var(--accent); }
+
+    /* ── Share Modal ─────────────────────────────────── */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(4px);
+      z-index:200; display:flex; align-items:center; justify-content:center;
+      opacity:0; pointer-events:none; transition:opacity .25s;
+    }
+    .modal-overlay.open { opacity:1; pointer-events:all; }
+    .modal {
+      background:var(--surface); border:1px solid var(--border); border-radius:20px;
+      padding:40px; width:380px; text-align:center;
+      transform:scale(.95); transition:transform .25s;
+    }
+    .modal-overlay.open .modal { transform:scale(1); }
+    .modal h2 { font-family:'DM Serif Display',serif; font-size:22px; margin-bottom:6px; }
+    .modal .modal-sub { color:var(--muted); font-size:13px; margin-bottom:28px; }
+
+    .qr-wrap {
+      width:200px; height:200px; margin:0 auto 24px;
+      border-radius:16px; overflow:hidden; background:var(--accent);
+      display:flex; align-items:center; justify-content:center; position:relative;
+    }
+    .qr-wrap img { width:100%; height:100%; display:block; }
+    .qr-wrap .qr-spinner { font-size:12px; color:var(--bg); }
+
+    /* tunnel status badge */
+    .tunnel-badge {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:5px 12px; border-radius:100px; font-size:12px;
+      margin-bottom:20px;
+    }
+    .tunnel-badge.live { background:#1a2a0a; color:var(--accent); border:1px solid #3a5010; }
+    .tunnel-badge.pending { background:#1a1a2a; color:var(--accent2); border:1px solid #3a3060; }
+    .tunnel-badge.off { background:#2a1a1a; color:var(--danger); border:1px solid #5a2a2a; }
+    .tunnel-dot { width:7px; height:7px; border-radius:50%; }
+    .tunnel-badge.live   .tunnel-dot { background:var(--accent); box-shadow:0 0 5px var(--accent); }
+    .tunnel-badge.pending .tunnel-dot { background:var(--accent2); animation:pulse 1.5s infinite; }
+    .tunnel-badge.off    .tunnel-dot { background:var(--danger); }
+
+    .url-row {
+      display:flex; gap:8px; margin-bottom:16px;
+    }
+    .url-box {
+      flex:1; padding:10px 12px; background:var(--bg); border:1px solid var(--border);
+      border-radius:8px; font-family:'DM Mono',monospace; font-size:12px;
+      color:var(--muted); text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .copy-btn {
+      padding:10px 14px; background:var(--accent); color:#0f0f11;
+      border:none; border-radius:8px; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap;
+      transition:opacity .2s;
+    }
+    .copy-btn:hover { opacity:.8; }
+    .copy-btn.done { background:#3a5010; color:var(--accent); }
+    .hint-label {
+      margin:2px 0 8px; text-align:left; color:var(--muted);
+      font-size:11px; letter-spacing:.2px;
+    }
+    .hint-note {
+      margin:0 0 16px; text-align:left; color:var(--muted);
+      font-size:11px; line-height:1.45;
+    }
+
+    .modal-close {
+      margin-top:8px; padding:10px 24px; background:transparent; border:1px solid var(--border);
+      border-radius:8px; color:var(--muted); cursor:pointer; font-size:13px; transition:all .2s;
+    }
+    .modal-close:hover { background:var(--border); color:var(--text); }
+
+    /* ── Main ─────────────────────────────────────────── */
+    .main { flex:1; display:flex; overflow:hidden; }
+    .editor-wrap { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    .toolbar {
+      height:44px; display:flex; align-items:center; gap:2px;
+      padding:0 16px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0;
+    }
+    .tb-btn { width:32px; height:32px; border-radius:6px; border:none; background:transparent; color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all .15s; }
+    .tb-btn:hover { background:var(--border); color:var(--text); }
+    .tb-sep { width:1px; height:20px; background:var(--border); margin:0 4px; }
+    .word-count { margin-left:auto; font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; }
+    .editor-container { flex:1; overflow-y:auto; padding:60px 80px; }
+    @media(max-width:900px){.editor-container{padding:32px 24px;}}
+    #editor { width:100%; max-width:720px; margin:0 auto; min-height:60vh; font-family:'DM Serif Display',serif; font-size:18px; line-height:1.8; color:var(--text); background:transparent; border:none; outline:none; resize:none; caret-color:var(--accent); display:block; }
+    #editor::placeholder { color:var(--muted); font-style:italic; }
+    .whiteboard-wrap {
+      width:100%; max-width:720px; margin:28px auto 0;
+      border:1px solid var(--border); border-radius:12px;
+      background:linear-gradient(145deg, #121216, #17171a);
+      overflow:hidden;
+    }
+    .wb-head {
+      height:44px; display:flex; align-items:center; gap:8px;
+      padding:0 10px; border-bottom:1px solid var(--border);
+      background:#131319;
+    }
+    .wb-title {
+      font-size:12px; text-transform:uppercase; letter-spacing:1px;
+      color:var(--muted); margin-right:6px;
+    }
+    .wb-btn {
+      height:28px; padding:0 10px; border-radius:7px;
+      border:1px solid var(--border); background:#0f0f13;
+      color:var(--text); font-size:12px; cursor:pointer;
+      transition:all .15s;
+    }
+    .wb-btn:hover { background:#1b1b23; }
+    .wb-btn.active { border-color:var(--accent2); color:var(--accent2); }
+    .wb-color {
+      width:28px; height:28px; padding:0; border:none; background:transparent;
+      cursor:pointer;
+    }
+    .wb-size {
+      width:100px;
+      accent-color: var(--accent2);
+    }
+    .wb-label { font-size:11px; color:var(--muted); }
+    #whiteboard {
+      width:100%; height:170px; display:block;
+      background:radial-gradient(circle at 12% 20%, #1b1c22 0%, #14141a 55%, #111117 100%);
+      cursor:crosshair;
+      touch-action:none;
+    }
+    #typing-indicator { height:28px; padding:0 80px; font-size:12px; color:var(--muted); display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .typing-dots span { display:inline-block; width:4px; height:4px; border-radius:50%; background:var(--muted); animation:bounce .8s infinite; margin:0 1px; }
+    .typing-dots span:nth-child(2){animation-delay:.15s} .typing-dots span:nth-child(3){animation-delay:.3s}
+    @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
+
+    /* ── Sidebar ─────────────────────────────────────── */
+    .sidebar { width:var(--sidebar); border-left:1px solid var(--border); background:var(--surface); display:flex; flex-direction:column; flex-shrink:0; }
+    .sidebar-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .stab { flex:1; padding:12px; text-align:center; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; transition:all .2s; }
+    .stab.active { color:var(--text); border-bottom-color:var(--accent); }
+    .sidebar-panel { display:none; flex:1; flex-direction:column; overflow:hidden; }
+    .sidebar-panel.active { display:flex; }
+
+    .users-list { padding:16px; display:flex; flex-direction:column; gap:10px; overflow-y:auto; }
+    .user-item { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:var(--radius); background:var(--bg); }
+    .user-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .user-name { font-size:14px; flex:1; }
+    .user-you { font-size:10px; color:var(--muted); background:var(--border); padding:2px 6px; border-radius:4px; }
+
+    .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+    .chat-meta { display:flex; align-items:baseline; gap:6px; margin-bottom:3px; }
+    .chat-author { font-size:12px; font-weight:500; }
+    .chat-time { font-size:10px; color:var(--muted); }
+    .chat-text { font-size:13px; color:var(--text); line-height:1.5; word-break:break-word; }
+    .chat-input-row { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--border); flex-shrink:0; }
+    .chat-input { flex:1; padding:8px 12px; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:13px; }
+    .chat-input:focus { outline:none; border-color:var(--accent2); }
+    .chat-send { padding:8px 14px; background:var(--accent2); border:none; border-radius:8px; color:#fff; cursor:pointer; font-size:13px; transition:opacity .2s; }
+    .chat-send:hover { opacity:.8; }
+
+    .history-list { padding:12px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+    .hist-item { padding:8px 10px; border-radius:8px; background:var(--bg); font-size:12px; border-left:3px solid var(--border); }
+    .hist-item .hist-who { font-weight:500; margin-bottom:2px; }
+    .hist-item .hist-detail { color:var(--muted); font-family:'DM Mono',monospace; }
+
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+    #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--border); padding:10px 20px; border-radius:100px; font-size:13px; color:var(--text); opacity:0; transition:opacity .3s; pointer-events:none; z-index:999; }
+    #toast.show { opacity:1; }
+  </style>
+</head>
+<body>
+
+<!-- Join -->
+<div id="join-screen">
+  <div class="join-card">
+    <div class="logo">collab·</div>
+    <p class="sub">Real-time collaborative document editor</p>
+    <label>Your Name</label>
+    <input type="text" id="name-input" placeholder="e.g. Alice" maxlength="24" />
+    <label>Document ID</label>
+    <div class="doc-id" id="doc-id-display">–</div>
+    <button class="join-btn" id="join-btn">Join Document →</button>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div class="topbar">
+    <div class="logo">collab·</div>
+    <div class="doc-title">doc / <span id="topbar-docid"></span></div>
+    <div class="status-dot"></div>
+    <div class="presence-row" id="presence-row"></div>
+    <button class="share-btn" id="share-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      Invite
+    </button>
+  </div>
+
+  <div class="main">
+    <div class="editor-wrap">
+      <div class="toolbar">
+        <button class="tb-btn" title="Bold" onclick="wrapSel('**','**')"><b>B</b></button>
+        <button class="tb-btn" title="Italic" onclick="wrapSel('_','_')"><i>I</i></button>
+        <button class="tb-btn" title="Code" onclick="wrapSel('`','`')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" title="Heading" onclick="prependLine('## ')">H</button>
+        <button class="tb-btn" title="Bullet" onclick="prependLine('• ')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" title="Clear" onclick="clearDoc()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+        <div class="word-count" id="word-count">0 words</div>
+      </div>
+
+      <div class="editor-container">
+        <textarea id="editor" placeholder="Start writing… changes sync instantly to every device." spellcheck="false"></textarea>
+        <div class="whiteboard-wrap">
+          <div class="wb-head">
+            <div class="wb-title">Mini Whiteboard</div>
+            <button class="wb-btn active" id="wb-tool-pen" type="button">Pen</button>
+            <button class="wb-btn" id="wb-tool-eraser" type="button">Eraser</button>
+            <input class="wb-color" id="wb-color" type="color" value="#c9f542" title="Brush color" />
+            <span class="wb-label">Size</span>
+            <input class="wb-size" id="wb-size" type="range" min="1" max="16" value="3" />
+            <button class="wb-btn" id="wb-clear" type="button">Clear</button>
+          </div>
+          <canvas id="whiteboard" width="1440" height="340"></canvas>
+        </div>
+      </div>
+
+      <div id="typing-indicator"></div>
+    </div>
+
+    <div class="sidebar">
+      <div class="sidebar-tabs">
+        <button class="stab active" data-tab="users">Users</button>
+        <button class="stab" data-tab="chat">Chat</button>
+        <button class="stab" data-tab="history">Log</button>
+      </div>
+      <div class="sidebar-panel active" id="tab-users">
+        <div class="users-list" id="users-list"></div>
+      </div>
+      <div class="sidebar-panel" id="tab-chat">
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-row">
+          <input class="chat-input" id="chat-input" placeholder="Message…" maxlength="300" />
+          <button class="chat-send" id="chat-send">Send</button>
+        </div>
+      </div>
+      <div class="sidebar-panel" id="tab-history">
+        <div class="history-list" id="history-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal-overlay" id="share-modal">
+  <div class="modal">
+    <h2>Invite Collaborators</h2>
+    <p class="modal-sub">Anyone with this link can join and edit in real time.</p>
+
+    <div class="tunnel-badge pending" id="tunnel-badge">
+      <div class="tunnel-dot"></div>
+      <span id="tunnel-label">Connecting tunnel…</span>
+    </div>
+
+    <div class="qr-wrap" id="qr-wrap">
+      <span class="qr-spinner">Loading QR…</span>
+    </div>
+
+    <div class="url-row">
+      <div class="url-box" id="share-url-box">—</div>
+      <button class="copy-btn" id="copy-url-btn">Copy</button>
+    </div>
+
+    <div class="hint-label">Tunnel password (only if loca.lt asks)</div>
+    <div class="url-row">
+      <div class="url-box" id="tunnel-password-box">—</div>
+      <button class="copy-btn" id="copy-password-btn">Copy</button>
+    </div>
+    <p class="hint-note" id="tunnel-help">If the public link says unavailable, confirm host app is running and re-open Invite for the latest link.</p>
+
+    <button class="modal-close" id="modal-close">Done</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+const docId = location.pathname.split("/doc/")[1] || "default";
+let myId = null, myName = "", myColor = "";
+let localVersion = 0;
+let users = {};
+let serverPublicUrl = null;
+let serverTunnelPassword = null;
+let typingTimer = null, isTyping = false;
+let whiteboardStrokes = [];
+let wbTool = "pen";
+let wbColor = "#c9f542";
+let wbSize = 3;
+let wbDrawing = false;
+let wbCurrentStroke = null;
+let wbCanvas = null;
+let wbCtx = null;
+
+const socket = io();
+
+// ── Join ──────────────────────────────────────────────────────────────────────
+document.getElementById("doc-id-display").textContent = docId;
+document.getElementById("name-input").focus();
+document.getElementById("join-btn").addEventListener("click", joinDoc);
+document.getElementById("name-input").addEventListener("keydown", e => { if (e.key === "Enter") joinDoc(); });
+
+function joinDoc() {
+  myName = document.getElementById("name-input").value.trim() || "Anonymous";
+  socket.emit("join", { docId, userName: myName });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+socket.on("init", ({ content, version, users: ul, you, publicUrl, tunnelPassword }) => {
+  myId = you.id; myColor = you.color; localVersion = version;
+  const ed = document.getElementById("editor");
+  ed.value = content; lastContent = content;
+  updateWordCount();
+  ul.forEach(u => { users[u.id] = u; });
+  setPublicUrl(publicUrl || null, tunnelPassword || null);
+  renderUsers(); renderPresence();
+  document.getElementById("join-screen").style.display = "none";
+  document.getElementById("app").classList.add("visible");
+  document.getElementById("topbar-docid").textContent = docId;
+  ed.focus();
+  addLog("system", "You joined the document");
+});
+
+socket.on("whiteboard:init", ({ strokes }) => {
+  whiteboardStrokes = Array.isArray(strokes) ? strokes : [];
+  redrawWhiteboard();
+});
+
+// Server pushed updated public URL (tunnel just came up)
+socket.on("publicUrl", ({ publicUrl, tunnelPassword }) => {
+  setPublicUrl(publicUrl, tunnelPassword || null);
+  if (publicUrl) showToast("🌐 Public tunnel ready — click Invite to share");
+});
+
+function setPublicUrl(url, tunnelPassword = null) {
+  serverPublicUrl = url;
+  serverTunnelPassword = tunnelPassword;
+  const btn = document.getElementById("share-btn");
+  if (url) {
+    btn.classList.add("live");
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Invite`;
+  } else {
+    btn.classList.remove("live");
+  }
+  // If modal is already open, refresh it
+  if (document.getElementById("share-modal").classList.contains("open")) {
+    populateModal();
+  }
+}
+
+// ── Share Modal ───────────────────────────────────────────────────────────────
+document.getElementById("share-btn").addEventListener("click", openModal);
+document.getElementById("modal-close").addEventListener("click", closeModal);
+document.getElementById("share-modal").addEventListener("click", e => {
+  if (e.target === document.getElementById("share-modal")) closeModal();
+});
+
+function openModal() {
+  document.getElementById("share-modal").classList.add("open");
+  populateModal();
+}
+function closeModal() {
+  document.getElementById("share-modal").classList.remove("open");
+}
+
+function populateModal() {
+  const badge     = document.getElementById("tunnel-badge");
+  const label     = document.getElementById("tunnel-label");
+  const urlBox    = document.getElementById("share-url-box");
+  const passBox   = document.getElementById("tunnel-password-box");
+  const helpText  = document.getElementById("tunnel-help");
+  const qrWrap    = document.getElementById("qr-wrap");
+
+  // Build the shareable URL (public tunnel URL + doc path, or local fallback)
+  let shareUrl;
+  if (serverPublicUrl) {
+    shareUrl = `${serverPublicUrl}/doc/${docId}`;
+    badge.className = "tunnel-badge live";
+    label.textContent = "Public tunnel active";
+  } else {
+    shareUrl = location.href;
+    badge.className = "tunnel-badge off";
+    label.textContent = "No tunnel — LAN only";
+  }
+
+  urlBox.textContent = shareUrl;
+  if (serverTunnelPassword) {
+    passBox.textContent = serverTunnelPassword;
+    helpText.textContent = "If loca.lt prompts for a tunnel password, paste this value, then open the same /doc link again.";
+  } else if (serverPublicUrl) {
+    passBox.textContent = "(fetching...)";
+    helpText.textContent = "If loca.lt prompts for a tunnel password and this stays empty, use https://loca.lt/mytunnelpassword from the host machine.";
+  } else {
+    passBox.textContent = "—";
+    helpText.textContent = "Tunnel is offline. Use LAN URL or wait for tunnel reconnect.";
+  }
+
+  // Load QR code from server
+  qrWrap.innerHTML = `<span class="qr-spinner">Generating…</span>`;
+  const img = new Image();
+  img.onload = () => { qrWrap.innerHTML = ""; qrWrap.appendChild(img); };
+  img.onerror = () => { qrWrap.innerHTML = `<span class="qr-spinner" style="font-size:11px;padding:8px;text-align:center">QR unavailable</span>`; };
+  img.src = `/api/qr?url=${encodeURIComponent(shareUrl)}`;
+  img.style.cssText = "width:100%;height:100%;display:block;border-radius:14px;";
+}
+
+document.getElementById("copy-url-btn").addEventListener("click", () => {
+  const url = document.getElementById("share-url-box").textContent;
+  if (url === "—") return;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById("copy-url-btn");
+    btn.textContent = "✓ Copied!";
+    btn.classList.add("done");
+    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 2000);
+  });
+});
+
+document.getElementById("copy-password-btn").addEventListener("click", () => {
+  const pw = document.getElementById("tunnel-password-box").textContent;
+  if (!pw || pw === "—" || pw === "(fetching...)") return;
+  navigator.clipboard.writeText(pw).then(() => {
+    const btn = document.getElementById("copy-password-btn");
+    btn.textContent = "✓ Copied!";
+    btn.classList.add("done");
+    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 2000);
+  });
+});
+
+// ── Editor ────────────────────────────────────────────────────────────────────
+let lastContent = "";
+
+document.getElementById("editor").addEventListener("input", e => {
+  const ed = e.target, newVal = ed.value;
+  const ops = diffToOps(lastContent, newVal);
+  lastContent = newVal;
+  if (!ops || ops.length === 0) return;
+  updateWordCount();
+  ops.forEach(op => {
+    socket.emit("operation", { docId, op, version: localVersion });
+  });
+  if (!isTyping) { isTyping = true; socket.emit("typing", { docId, isTyping: true }); }
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => { isTyping = false; socket.emit("typing", { docId, isTyping: false }); }, 1200);
+});
+
+document.getElementById("editor").addEventListener("keyup",   emitCursor);
+document.getElementById("editor").addEventListener("click",   emitCursor);
+function emitCursor() { const ed = document.getElementById("editor"); socket.emit("cursor", { docId, index: ed.selectionStart }); }
+
+socket.on("ack", ({ version }) => { localVersion = version; });
+
+socket.on("operation", ({ op, version, userId }) => {
+  localVersion = version;
+  const ed = document.getElementById("editor");
+  const sel = ed.selectionStart;
+  const after = applyOp(ed.value, op);
+  ed.value = after; lastContent = after;
+  ed.selectionStart = ed.selectionEnd = adjustIndex(sel, op);
+  updateWordCount();
+  const u = users[userId];
+  if (u) addLog(u.color, `${u.name} edited`);
+});
+
+socket.on("whiteboard:stroke", ({ stroke, userId }) => {
+  if (!stroke || !Array.isArray(stroke.points) || stroke.points.length < 2) return;
+  whiteboardStrokes.push(stroke);
+  drawStroke(stroke);
+  const u = users[userId];
+  if (u) addLog(u.color, `${u.name} drew on whiteboard`);
+});
+
+socket.on("whiteboard:clear", ({ userId }) => {
+  whiteboardStrokes = [];
+  redrawWhiteboard();
+  const u = users[userId];
+  if (u) addLog(u.color, `${u.name} cleared whiteboard`);
+});
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+socket.on("user:join", u => { users[u.id] = u; renderUsers(); renderPresence(); showToast(`${u.name} joined`); addLog(u.color, `${u.name} joined`); });
+socket.on("user:leave", ({ userId }) => {
+  const u = users[userId];
+  if (u) { showToast(`${u.name} left`); addLog(u.color, `${u.name} left`); delete users[userId]; renderUsers(); renderPresence(); }
+});
+socket.on("cursor", ({ userId, index, color, name }) => { if (users[userId]) { users[userId].cursor = index; renderUsers(); } });
+
+// ── Typing ────────────────────────────────────────────────────────────────────
+const typingUsers = {};
+socket.on("typing", ({ userId, name, color, isTyping: t }) => {
+  if (t) typingUsers[userId] = { name, color }; else delete typingUsers[userId];
+  const ti = document.getElementById("typing-indicator");
+  const names = Object.values(typingUsers).map(u => `<span style="color:${u.color}">${escHtml(u.name)}</span>`);
+  ti.innerHTML = names.length ? `<div class="typing-dots"><span></span><span></span><span></span></div>${names.join(", ")} ${names.length===1?"is":"are"} typing…` : "";
+});
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+function sendChat() {
+  const inp = document.getElementById("chat-input"), msg = inp.value.trim();
+  if (!msg) return; socket.emit("chat", { docId, message: msg }); inp.value = "";
+}
+document.getElementById("chat-send").addEventListener("click", sendChat);
+document.getElementById("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
+socket.on("chat", msg => {
+  const box = document.getElementById("chat-messages");
+  box.insertAdjacentHTML("beforeend", `<div class="chat-msg"><div class="chat-meta"><span class="chat-author" style="color:${msg.color}">${escHtml(msg.name)}</span><span class="chat-time">${msg.time}</span></div><div class="chat-text">${escHtml(msg.message)}</div></div>`);
+  box.scrollTop = box.scrollHeight;
+  if (!document.getElementById("tab-chat").classList.contains("active")) document.querySelector('.stab[data-tab="chat"]').style.color = "var(--accent)";
+});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderUsers() {
+  const list = document.getElementById("users-list");
+  list.innerHTML = "";
+  Object.values(users).forEach(u => {
+    list.insertAdjacentHTML("beforeend", `<div class="user-item"><div class="user-dot" style="background:${u.color};box-shadow:0 0 6px ${u.color}44"></div><div class="user-name">${escHtml(u.name)}</div>${u.id===myId?'<span class="user-you">you</span>':""}</div>`);
+  });
+}
+function renderPresence() {
+  const row = document.getElementById("presence-row");
+  row.innerHTML = "";
+  Object.values(users).forEach(u => {
+    row.insertAdjacentHTML("beforeend", `<div class="avatar" style="background:${u.color}">${u.name.slice(0,2).toUpperCase()}<div class="tooltip">${escHtml(u.name)}</div></div>`);
+  });
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll(".stab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    const key = tab.dataset.tab;
+    document.querySelectorAll(".stab").forEach(t => { t.classList.remove("active"); t.style.color=""; });
+    document.querySelectorAll(".sidebar-panel").forEach(p => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById(`tab-${key}`).classList.add("active");
+  });
+});
+
+// ── Toolbar ───────────────────────────────────────────────────────────────────
+function wrapSel(a,b) { const ed=document.getElementById("editor"),s=ed.selectionStart,e=ed.selectionEnd,sel=ed.value.slice(s,e); ed.setRangeText(a+sel+b,s,e,"select"); ed.dispatchEvent(new Event("input")); }
+function prependLine(p) { const ed=document.getElementById("editor"),s=ed.selectionStart,ls=ed.value.lastIndexOf("\n",s-1)+1; ed.setRangeText(p,ls,ls,"end"); ed.dispatchEvent(new Event("input")); }
+function clearDoc() { 
+  if(!confirm("Clear for everyone?")) return; 
+  const ed=document.getElementById("editor"); 
+  const len = lastContent.length;
+  ed.value=""; lastContent=""; 
+  if (len > 0) socket.emit("operation",{docId,op:{type:"delete",index:0,length:len},version:localVersion}); 
+}
+function updateWordCount() { const w=document.getElementById("editor").value.trim().split(/\s+/).filter(Boolean).length; document.getElementById("word-count").textContent=`${w} word${w!==1?"s":""}`; }
+
+// ── Whiteboard ───────────────────────────────────────────────────────────────
+function initWhiteboard() {
+  wbCanvas = document.getElementById("whiteboard");
+  wbCtx = wbCanvas.getContext("2d");
+  setupWhiteboardEvents();
+  setupWhiteboardTools();
+  redrawWhiteboard();
+}
+
+function setupWhiteboardTools() {
+  const penBtn = document.getElementById("wb-tool-pen");
+  const eraserBtn = document.getElementById("wb-tool-eraser");
+  const colorInput = document.getElementById("wb-color");
+  const sizeInput = document.getElementById("wb-size");
+  const clearBtn = document.getElementById("wb-clear");
+
+  penBtn.addEventListener("click", () => setWhiteboardTool("pen"));
+  eraserBtn.addEventListener("click", () => setWhiteboardTool("eraser"));
+  colorInput.addEventListener("input", () => { wbColor = colorInput.value; });
+  sizeInput.addEventListener("input", () => { wbSize = Number(sizeInput.value) || 3; });
+  clearBtn.addEventListener("click", () => {
+    whiteboardStrokes = [];
+    redrawWhiteboard();
+    socket.emit("whiteboard:clear", { docId });
+    addLog("system", "You cleared whiteboard");
+  });
+}
+
+function setWhiteboardTool(tool) {
+  wbTool = tool;
+  document.getElementById("wb-tool-pen").classList.toggle("active", tool === "pen");
+  document.getElementById("wb-tool-eraser").classList.toggle("active", tool === "eraser");
+}
+
+function setupWhiteboardEvents() {
+  wbCanvas.addEventListener("pointerdown", onWhiteboardPointerDown);
+  wbCanvas.addEventListener("pointermove", onWhiteboardPointerMove);
+  wbCanvas.addEventListener("pointerup", onWhiteboardPointerUp);
+  wbCanvas.addEventListener("pointerleave", onWhiteboardPointerUp);
+}
+
+function onWhiteboardPointerDown(e) {
+  wbDrawing = true;
+  wbCanvas.setPointerCapture(e.pointerId);
+  const p = whiteboardPoint(e);
+  wbCurrentStroke = {
+    tool: wbTool,
+    color: wbTool === "eraser" ? "#14141a" : wbColor,
+    size: wbSize,
+    points: [p]
+  };
+}
+
+function onWhiteboardPointerMove(e) {
+  if (!wbDrawing || !wbCurrentStroke) return;
+  const p = whiteboardPoint(e);
+  const points = wbCurrentStroke.points;
+  const last = points[points.length - 1];
+  if (last && Math.abs(last.x - p.x) < 0.5 && Math.abs(last.y - p.y) < 0.5) return;
+  points.push(p);
+  if (points.length > 1) drawStrokeSegment(wbCurrentStroke, points[points.length - 2], points[points.length - 1]);
+}
+
+function onWhiteboardPointerUp(e) {
+  if (!wbDrawing || !wbCurrentStroke) return;
+  wbDrawing = false;
+  try { wbCanvas.releasePointerCapture(e.pointerId); } catch {}
+  if (wbCurrentStroke.points.length > 1) {
+    whiteboardStrokes.push(wbCurrentStroke);
+    socket.emit("whiteboard:stroke", { docId, stroke: wbCurrentStroke });
+  }
+  wbCurrentStroke = null;
+}
+
+function whiteboardPoint(e) {
+  const rect = wbCanvas.getBoundingClientRect();
+  const sx = wbCanvas.width / rect.width;
+  const sy = wbCanvas.height / rect.height;
+  return {
+    x: (e.clientX - rect.left) * sx,
+    y: (e.clientY - rect.top) * sy
+  };
+}
+
+function drawStroke(stroke) {
+  if (!stroke.points || stroke.points.length < 2) return;
+  for (let i = 1; i < stroke.points.length; i++) {
+    drawStrokeSegment(stroke, stroke.points[i - 1], stroke.points[i]);
+  }
+}
+
+function drawStrokeSegment(stroke, from, to) {
+  wbCtx.strokeStyle = stroke.color;
+  wbCtx.lineWidth = stroke.size;
+  wbCtx.lineCap = "round";
+  wbCtx.lineJoin = "round";
+  wbCtx.beginPath();
+  wbCtx.moveTo(from.x, from.y);
+  wbCtx.lineTo(to.x, to.y);
+  wbCtx.stroke();
+}
+
+function redrawWhiteboard() {
+  if (!wbCtx) return;
+  wbCtx.clearRect(0, 0, wbCanvas.width, wbCanvas.height);
+  whiteboardStrokes.forEach(drawStroke);
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+function addLog(color, text) {
+  const list = document.getElementById("history-list");
+  const time = new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  list.insertAdjacentHTML("afterbegin", `<div class="hist-item" style="border-left-color:${color==="system"?"var(--muted)":color}"><div class="hist-who" style="color:${color==="system"?"var(--muted)":color}">${escHtml(text)}</div><div class="hist-detail">${time}</div></div>`);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg) { const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2500); }
+
+// ── OT ────────────────────────────────────────────────────────────────────────
+function applyOp(s, op) {
+  if(op.type==="insert") return s.slice(0,op.index)+op.text+s.slice(op.index);
+  if(op.type==="delete") return s.slice(0,op.index)+s.slice(op.index+op.length);
+  return s;
+}
+function adjustIndex(cur, op) {
+  if(op.type==="insert"&&op.index<=cur) return cur+op.text.length;
+  if(op.type==="delete"&&op.index<cur)  return Math.max(cur-op.length,op.index);
+  return cur;
+}
+function diffToOps(old, nw) {
+  if(old===nw) return [];
+  let s=0; while(s<old.length&&s<nw.length&&old[s]===nw[s])s++;
+  let oe=old.length,ne=nw.length;
+  while(oe>s&&ne>s&&old[oe-1]===nw[ne-1]){oe--;ne--;}
+  const del=old.slice(s,oe),ins=nw.slice(s,ne);
+  const ops = [];
+  if(del.length) ops.push({type:"delete",index:s,length:del.length});
+  if(ins.length) ops.push({type:"insert",index:s,text:ins});
+  return ops;
+}
+function escHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+initWhiteboard();
+</script>
+</body>
+</html>
