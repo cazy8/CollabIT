@@ -18,7 +18,14 @@ CollabIT is a modern realtime workspace for teams that need low-latency collabor
 ## Tech Stack Logos
 
 <p align="center">
-	<img src="https://skillicons.dev/icons?i=nodejs,express,js,html,css,socketio,npm,github" alt="Tech stack logos" />
+	<img src="https://skillicons.dev/icons?i=nodejs,express,js,html,css&theme=dark" alt="Frontend and backend tech" height="50" />
+</p>
+
+<p align="center">
+	<img src="https://img.shields.io/badge/Socket.IO-4.x-010101?style=for-the-badge&logo=socketdotio&logoColor=white" alt="Socket.IO" />
+	<img src="https://img.shields.io/badge/npm-10.x-CB3837?style=for-the-badge&logo=npm&logoColor=white" alt="npm" />
+	<img src="https://img.shields.io/badge/QRCode-1.5.x-000000?style=for-the-badge" alt="QRCode" />
+	<img src="https://img.shields.io/badge/LocalTunnel-2.0.x-FF6B35?style=for-the-badge" alt="LocalTunnel" />
 </p>
 
 ## Feature Set
@@ -162,17 +169,22 @@ It checks:
 
 ## Screenshots
 
-<p align="center">
-	<img src="screenshots/Screenshot%202026-04-24%20001110.png" alt="Main collaboration UI" width="85%" />
-</p>
-
-<p align="center">
-	<img src="screenshots/Screenshot%202026-04-24%20001223.png" alt="Invite and sharing modal" width="85%" />
-</p>
-
-<p align="center">
-	<img src="screenshots/Screenshot%202026-04-24%20001254.png" alt="Whiteboard in workspace" width="85%" />
-</p>
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <strong>Main UI</strong><br/>
+      <img src="screenshots/Screenshot%202026-04-24%20001110.png" alt="Main collaboration UI" width="100%" />
+    </td>
+    <td width="33%" align="center">
+      <strong>Invite Modal</strong><br/>
+      <img src="screenshots/Screenshot%202026-04-24%20001223.png" alt="Invite and sharing modal" width="100%" />
+    </td>
+    <td width="33%" align="center">
+      <strong>Whiteboard</strong><br/>
+      <img src="screenshots/Screenshot%202026-04-24%20001254.png" alt="Whiteboard in workspace" width="100%" />
+    </td>
+  </tr>
+</table>
 
 ## Security and Production Notes
 
