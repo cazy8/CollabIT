@@ -6,18 +6,34 @@
 
 CollabIT is a modern realtime workspace for teams that need low-latency collaboration. It combines collaborative text editing, live chat, user presence, and a compact shared whiteboard in one browser interface.
 
-## Tech Stack Logos
+## Tech Stack
 
-<p align="center">
-	<img src="https://skillicons.dev/icons?i=nodejs,express,js,html,css&theme=dark" alt="Frontend and backend tech" height="50" />
-</p>
+### Core Technologies
 
-<p align="center">
-	<img src="https://img.shields.io/badge/Socket.IO-4.x-010101?style=for-the-badge&logo=socketdotio&logoColor=white" alt="Socket.IO" />
-	<img src="https://img.shields.io/badge/npm-10.x-CB3837?style=for-the-badge&logo=npm&logoColor=white" alt="npm" />
-	<img src="https://img.shields.io/badge/QRCode-1.5.x-000000?style=for-the-badge" alt="QRCode" />
-	<img src="https://img.shields.io/badge/LocalTunnel-2.0.x-FF6B35?style=for-the-badge" alt="LocalTunnel" />
-</p>
+| Technology | Version | Purpose |
+|---|---|---|
+| <img src="https://skillicons.dev/icons?i=nodejs" height="24" /> **Node.js** | 18+ | Runtime environment |
+| <img src="https://skillicons.dev/icons?i=express" height="24" /> **Express.js** | 4.x | Web server framework |
+| <img src="https://skillicons.dev/icons?i=socketio" height="24" /> **Socket.IO** | 4.x | Realtime communication |
+| <img src="https://skillicons.dev/icons?i=js" height="24" /> **JavaScript** | ES6+ | Language |
+| <img src="https://skillicons.dev/icons?i=html" height="24" /> **HTML5** | — | Markup |
+| <img src="https://skillicons.dev/icons?i=css" height="24" /> **CSS3** | — | Styling |
+
+### Utilities & Tools
+
+| Tool | Version | Purpose |
+|---|---|---|
+| <img src="https://skillicons.dev/icons?i=npm" height="24" /> **npm** | 10+ | Package manager |
+| **qrcode** | 1.5.x | QR code generation |
+| **localtunnel** | 2.0.x | Public tunneling |
+| **nodemon** | — | Development auto-reload |
+
+### Deployment
+
+| Platform | Version | Role |
+|---|---|---|
+| <img src="https://skillicons.dev/icons?i=github" height="24" /> **GitHub** | — | Version control & hosting |
+| **LocalTunnel** | 2.0.x | Remote access |
 
 ## Feature Set
 
