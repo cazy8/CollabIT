@@ -1,195 +1,193 @@
-# CollabIT
+<div align="center">
+	<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f0f11,40:7c6af7,100:c9f542&height=220&section=header&text=CollabIT&fontSize=58&fontColor=e8e8ea&animation=fadeIn&desc=Realtime%20Document%20Collaboration%20Platform&descAlignY=64" alt="CollabIT banner" />
 
-Real-time collaborative writing + chat + lightweight shared whiteboard, built with Node.js, Socket.IO, and a single-page vanilla frontend.
+	<img src="https://readme-typing-svg.herokuapp.com?font=DM+Sans&weight=600&size=24&pause=900&duration=2600&color=C9F542&center=true&vCenter=true&width=920&lines=Realtime+editing+with+Socket.IO+and+OT;Presence%2C+chat%2C+and+mini+whiteboard+in+one+workspace;Built+for+fast+multi-user+collaboration" alt="Typing animation" />
 
-## 1. Highlights
+	<p>
+		<img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js" />
+		<img src="https://img.shields.io/badge/Socket.IO-4.x-010101?logo=socketdotio&logoColor=white" alt="Socket.IO" />
+		<img src="https://img.shields.io/badge/Express-4.x-000000?logo=express&logoColor=white" alt="Express" />
+		<img src="https://img.shields.io/badge/License-MIT-informational" alt="License" />
+	</p>
+</div>
 
-- Real-time collaborative text editing with server-side OT conflict handling
-- Live presence, join/leave events, cursor updates, and typing indicators
-- Room chat with per-user identity coloring
-- Embedded mini whiteboard with pen, eraser, color, brush-size, and clear
-- Share flow with QR code generation and public tunnel integration
+## Overview
 
-## 2. Tech Stack
+CollabIT is a modern realtime workspace for teams that need low-latency collaboration. It combines collaborative text editing, live chat, user presence, and a compact shared whiteboard in one browser interface.
 
-### Backend
+## Tech Stack Logos
 
-- Node.js
-- Express (HTTP server + static hosting + API routes)
-- Socket.IO (real-time event transport)
-- LocalTunnel (optional public exposure)
-- QRCode (dynamic invite QR generation)
+<p align="center">
+	<img src="https://skillicons.dev/icons?i=nodejs,express,js,html,css,socketio,npm,github" alt="Tech stack logos" />
+</p>
 
-### Frontend
+## Feature Set
 
-- Vanilla HTML/CSS/JavaScript
-- Canvas API for whiteboard rendering
-- Socket.IO client for real-time syncing
+- Realtime collaborative text editing (OT-style server reconciliation)
+- Presence and live user list
+- Cursor and typing indicators
+- Room chat with user color identity
+- Mini collaborative whiteboard:
+	- pen
+	- eraser
+	- color picker
+	- brush size
+	- clear board
+- Invite workflow with QR code generation
+- Public tunnel support for cross-device sharing
 
-### Tooling
-
-- Nodemon (development auto-reload)
-- socket.io-client (multi-user smoke testing)
-
-## 3. Dependency Structure
+## Dependency Structure
 
 ### Runtime dependencies
 
-- express: web server and static file serving
-- socket.io: websocket and fallback transport layer
-- qrcode: PNG QR generation for share links
-- localtunnel: public temporary URL for cross-device collaboration
+| Package | Purpose |
+|---|---|
+| express | HTTP server, static file serving, and REST endpoints |
+| socket.io | Bidirectional realtime communication between clients and server |
+| qrcode | Server-side PNG QR generation for share links |
+| localtunnel | Temporary public URL exposure for remote device access |
 
 ### Development dependencies
 
-- nodemon: restart server automatically in development
-- socket.io-client: headless test clients for smoke tests
+| Package | Purpose |
+|---|---|
+| nodemon | Auto-restart server during development |
+| socket.io-client | Programmatic clients for smoke testing |
 
-## 4. Project Architecture
+## Architecture
 
+### High-level flow
+
+```mermaid
+flowchart LR
+		A[Browser Client 1] <--Socket.IO--> S[Node.js Server]
+		B[Browser Client 2] <--Socket.IO--> S
+		C[Browser Client N] <--Socket.IO--> S
+		S --> R[(In-memory Rooms)]
+		S --> Q[QR API]
+		S --> T[Optional LocalTunnel]
 ```
+
+### Realtime data model per room
+
+- content: current text snapshot
+- version: document version counter
+- history: operation history used for transforms
+- users: connected user metadata map
+- whiteboardStrokes: shared whiteboard stroke list
+
+### Project layout
+
+```text
 collab-editor/
-|-- server.js
-|-- package.json
-|-- package-lock.json
-|-- public/
-|   `-- index.html
-|-- scripts/
-|   `-- multiuser-smoke.js
-`-- screenshots/
-		|-- Screenshot 2026-04-24 001110.png
-		|-- Screenshot 2026-04-24 001223.png
-		`-- Screenshot 2026-04-24 001254.png
+|- server.js
+|- package.json
+|- package-lock.json
+|- public/
+|  `- index.html
+|- scripts/
+|  `- multiuser-smoke.js
+`- screenshots/
+	 |- Screenshot 2026-04-24 001110.png
+	 |- Screenshot 2026-04-24 001223.png
+	 `- Screenshot 2026-04-24 001254.png
 ```
 
-### Runtime data model (in-memory)
+## Installation and Setup
 
-- rooms[docId]
-	- content: current text document
-	- version: monotonic document version
-	- history: OT operations history
-	- users: connected user map
-	- whiteboardStrokes: canvas stroke history
+### Requirements
 
-## 5. Installation and Setup
+- Node.js 18 or newer
+- npm 9 or newer
 
-### Prerequisites
-
-- Node.js 18+ recommended
-- npm 9+ recommended
-
-### Install
+### 1) Install dependencies
 
 ```bash
 npm install
 ```
 
-### Start (default, with tunnel attempt)
+### 2) Run the app
 
 ```bash
 npm start
 ```
 
-### Start (without tunnel)
+Open http://localhost:3005
 
-```bash
-npm start -- --no-tunnel
-```
-
-Then open:
-
-- Local: http://localhost:3005
-
-The app redirects `/` to a generated `/doc/<id>` room.
-
-### Development mode
+### 3) Development mode (auto reload)
 
 ```bash
 npm run dev
 ```
 
-## 6. Configuration
+### 4) Run without public tunnel
+
+```bash
+npm start -- --no-tunnel
+```
+
+## Runtime Configuration
 
 ### Environment variables
 
-- PORT: server port (default 3005)
-- DISABLE_TUNNEL: set to 1/true/yes to skip LocalTunnel
-- TUNNEL_HOST: override tunnel host if needed
+- PORT: server port (default: 3005)
+- DISABLE_TUNNEL: set to 1, true, or yes to disable LocalTunnel
+- TUNNEL_HOST: custom tunnel host override
 
 ### CLI flags
 
 - --no-tunnel
 - --tunnel-host=<host>
 
-## 7. Testing
+## NPM Scripts
 
-Run the multi-user smoke test:
+| Script | Command | Description |
+|---|---|---|
+| start | node server.js | Start server in normal mode |
+| dev | nodemon server.js | Start server with watch/restart |
+
+## Testing
+
+Run the smoke test:
 
 ```bash
 node scripts/multiuser-smoke.js
 ```
 
-It validates:
+It checks:
 
-- 3 clients can join the same room
-- join visibility across clients
-- chat propagation to all participants
+- multi-client room join
+- user visibility propagation
+- chat broadcast correctness
 
-## 8. Collaboration and Event Flow
+## Screenshots
 
-### Core socket events
+<p align="center">
+	<img src="screenshots/Screenshot%202026-04-24%20001110.png" alt="Main collaboration UI" width="85%" />
+</p>
 
-- join
-- init
-- operation + ack
-- user:join / user:leave
-- typing
-- chat
-- whiteboard:init / whiteboard:stroke / whiteboard:clear
+<p align="center">
+	<img src="screenshots/Screenshot%202026-04-24%20001223.png" alt="Invite and sharing modal" width="85%" />
+</p>
 
-### OT flow (text)
+<p align="center">
+	<img src="screenshots/Screenshot%202026-04-24%20001254.png" alt="Whiteboard in workspace" width="85%" />
+</p>
 
-1. Client computes local diff operation(s)
-2. Client sends operation with local version
-3. Server transforms against concurrent history
-4. Server applies canonical operation and increments version
-5. Server broadcasts transformed operation
+## Security and Production Notes
 
-### Whiteboard flow
-
-1. Client draws and emits stroke payload
-2. Server validates/clamps stroke and stores in room history
-3. Server broadcasts stroke to other clients
-4. New joiners receive whiteboard:init snapshot
-
-## 9. Security Notes
-
-Current implementation prioritizes collaboration speed and demo usability. For production use, add:
+This repository is optimized for fast local collaboration. For production rollout, add:
 
 - authentication and room authorization
-- socket event rate limiting and payload size limits
-- persistent storage and bounded history retention policies
-- stricter origin/CORS policy
-- security headers and reverse-proxy hardening
+- event-level rate limiting and payload caps
+- persistent datastore with bounded retention
+- strict CORS origin allowlist
+- security headers and reverse proxy hardening
 
-## 10. Screenshots
+## Roadmap
 
-### Main Collaboration Surface
-
-![Main collaboration UI](screenshots/Screenshot%202026-04-24%20001110.png)
-
-### Invite and Sharing Experience
-
-![Invite modal and sharing flow](screenshots/Screenshot%202026-04-24%20001223.png)
-
-### Whiteboard and Collaboration Context
-
-![Whiteboard and collaborative workspace](screenshots/Screenshot%202026-04-24%20001254.png)
-
-## 11. Roadmap
-
-- Document persistence (PostgreSQL/MongoDB)
-- Presence heartbeats and stale-session cleanup
 - Whiteboard undo/redo and shape tools
-- Redis adapter for horizontal scaling
-- Role-based permissions and moderated rooms
+- Rich-text editor integration
+- Durable document persistence
+- Horizontal scaling with Redis adapter
+- Role-based moderation and access control
